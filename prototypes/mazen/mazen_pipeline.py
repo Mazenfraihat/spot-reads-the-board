@@ -15,9 +15,15 @@ plus results/summary.csv with one row per photo (bring this to the meeting).
 
 To improve a step: copy this file to prototypes/<yourname>/ and change ONE function.
 """
-import sys, os, glob, csv
+import sys, os, glob, csv, textwrap
 import cv2
 import numpy as np
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+if THIS_DIR not in sys.path:
+    sys.path.append(THIS_DIR)  # allow importing sibling helper modules (e.g., ocr_step.py)
+
+from ocr_step import extract_text  # Step 5 OCR helper kept modular in a separate file
 
 
 def order_corners(pts):
@@ -132,10 +138,29 @@ def find_writing(norm, flat):
     return out, boxes
 
 
+def render_ocr_preview(flat, text):
+    """Create a side-by-side preview image with the flattened board and OCR text panel."""
+    h, w = flat.shape[:2]
+    panel = np.full((h, w, 3), 255, dtype=np.uint8)
+    cv2.putText(panel, "OCR DETECTED TEXT", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (20, 20, 20), 2, cv2.LINE_AA)
+    y = 80
+    wrapped = []
+    for line in text.splitlines():
+        wrapped.extend(textwrap.wrap(line, width=42) or [""])
+    if not wrapped:
+        wrapped = ["(no text detected)"]
+    for line in wrapped:
+        if y > h - 20:
+            break
+        cv2.putText(panel, line, (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (30, 30, 30), 1, cv2.LINE_AA)
+        y += 24
+    return np.hstack([flat, panel])
+
+
 def run(path, out_dir):
     """Run the full pipeline on one photo. Returns a summary row (dict)."""
     name = os.path.splitext(os.path.basename(path))[0]
-    row = {"photo": name, "board_found": "", "writing_regions": "", "note": ""}
+    row = {"photo": name, "board_found": "", "writing_regions": "", "ocr_chars": "", "note": "", "ocr_note": ""}
     img = cv2.imread(path)
     if img is None:
         print(f"[skip] can't read {path}")
@@ -158,10 +183,27 @@ def run(path, out_dir):
     flat = flatten(img, corners)
     cv2.imwrite(f"{out_dir}/{name}_3_flat.jpg", flat)
 
-    boxed, n = find_writing(normalize_lighting(flat), flat)
+    normalized = normalize_lighting(flat)  # reuse glare-corrected board for both writing boxes and OCR
+    boxed, n = find_writing(normalized, flat)
     cv2.imwrite(f"{out_dir}/{name}_4_writing.jpg", boxed)
-    print(f"[OK]   {name}: board found, {n} writing regions")
-    row.update(board_found="yes", writing_regions=n)
+
+    # STEP 5 - OCR text extraction on the flattened board.
+    text, ocr_note = extract_text(flat, normalized)
+    # Persist OCR output per image so it can be inspected independently of CSV metrics.
+    with open(f"{out_dir}/{name}_5_text.txt", "w", encoding="utf-8") as f:
+        f.write(f"OCR status: {ocr_note}\n\n")
+        f.write(text if text else "(no text detected)")
+    preview = render_ocr_preview(flat, text)
+    cv2.imwrite(f"{out_dir}/{name}_6_ocr_preview.jpg", preview)
+
+    print(f"[OK]   {name}: board found, {n} writing regions, OCR={ocr_note}")
+    if text:
+        print(f"       OCR text ({name}):")
+        for i, line in enumerate(text.splitlines(), start=1):
+            print(f"       {i:02d}. {line}")
+    else:
+        print("       OCR text: (no text detected)")
+    row.update(board_found="yes", writing_regions=n, ocr_chars=len(text), ocr_note=ocr_note)
     return row
 
 
@@ -177,7 +219,7 @@ if __name__ == "__main__":
 
     rows = [run(p, out_dir) for p in photos]
     with open(f"{out_dir}/summary.csv", "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["photo", "board_found", "writing_regions", "note"])
+        writer = csv.DictWriter(f, fieldnames=["photo", "board_found", "writing_regions", "ocr_chars", "note", "ocr_note"])
         writer.writeheader()
         writer.writerows(rows)
 
