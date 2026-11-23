@@ -87,10 +87,11 @@ def detect_board(img):
     sat = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[..., 1]
     eq = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)   # boost contrast in dim rooms
     edges = auto_canny(cv2.GaussianBlur(eq, (5, 5), 0))
-    edges = cv2.dilate(edges, np.ones((5, 5), np.uint8), iterations=2)     # close gaps in the frame
+    # Keep a thin edge map for saved output, but use a light close-pass for quad detection stability.
+    detect_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8), iterations=1)
 
     img_area = img.shape[0] * img.shape[1]
-    quads = quad_candidates(edges, img_area)
+    quads = quad_candidates(detect_edges, img_area)
     if not quads:
         return None, edges
     scores = [whiteness(q, gray, sat) for q in quads]
@@ -157,6 +158,18 @@ def render_ocr_preview(flat, text):
     return np.hstack([flat, panel])
 
 
+def format_readable_ocr(text, ocr_note):
+    """Return a human-readable OCR report with numbered phrases."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    out = [f"OCR status: {ocr_note}", "", "Readable phrases:"]
+    if not lines:
+        out.append("- (no text detected)")
+        return "\n".join(out)
+    for idx, line in enumerate(lines, start=1):
+        out.append(f"{idx:02d}. {line}")
+    return "\n".join(out)
+
+
 def run(path, out_dir):
     """Run the full pipeline on one photo. Returns a summary row (dict)."""
     name = os.path.splitext(os.path.basename(path))[0]
@@ -193,6 +206,8 @@ def run(path, out_dir):
     with open(f"{out_dir}/{name}_5_text.txt", "w", encoding="utf-8") as f:
         f.write(f"OCR status: {ocr_note}\n\n")
         f.write(text if text else "(no text detected)")
+    with open(f"{out_dir}/{name}_5_text_readable.txt", "w", encoding="utf-8") as f:
+        f.write(format_readable_ocr(text, ocr_note))
     preview = render_ocr_preview(flat, text)
     cv2.imwrite(f"{out_dir}/{name}_6_ocr_preview.jpg", preview)
 
