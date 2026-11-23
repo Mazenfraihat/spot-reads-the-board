@@ -62,9 +62,9 @@ Examples: `mazen_01_straight_clean.jpg`, `mazen_02_angle45_glare.jpg`, `mazen_03
 ## Repo layout
 
 ```
-data/phone_photos/       put photos here (not committed — they live in Drive)
+data/phone_photos/       put photos here (do NOT commit photos — they live in Drive)
 prototypes/<name>/       your improved version of one step
-.gitignore               ignore this
+.gitignore               commits photos
 README.md               initial document to read on project progress
 RESULTS.md               comparison table for the meeting
 evaluate.py              scores a pipeline against ground truth
