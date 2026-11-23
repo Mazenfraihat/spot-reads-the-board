@@ -62,14 +62,16 @@ Examples: `mazen_01_straight_clean.jpg`, `mazen_02_angle45_glare.jpg`, `mazen_03
 ## Repo layout
 
 ```
-whiteboard_starter.py    shared baseline everyone runs
-requirements.txt
 data/phone_photos/       put photos here (not committed — they live in Drive)
-results/                 script output (not committed)
 prototypes/<name>/       your improved version of one step
-make_test_photos.py      synthetic photos + ground truth
-evaluate.py              scores a pipeline against ground truth
+.gitignore               ignore this
+README.md               initial document to read on project progress
 RESULTS.md               comparison table for the meeting
+evaluate.py              scores a pipeline against ground truth
+make_test_photos.py      synthetic photos + ground truth
+requirements.txt           libraries to include (?)
+week1_results.html                 script output (not committed)
+whiteboard_starter.py    shared baseline everyone runs
 ```
 
 ## Rules
