@@ -2,14 +2,14 @@
 
 CS 5190 Computer Vision (CV) group project at Cal Poly Pomona. A Boston Dynamics Spot robot identifies a whiteboard, flattens it to a straight-on view, and extracts what's written on it.
 
-**Problem: ** Can Spot read written characters on a whiteboard in the English language?
+**Problem:** Can Spot read written characters on a whiteboard in the English language?
 
 Initially, Spot will detect characters written in the English language. Detecting other characters and objects on a whiteboard will be taken into future consideration.
 
 We're breaking the problem into three main stages to solve it:
-**(1)** Whiteboard and writing detection
-**(2)** Real-time detection on a camera
-**(3)** Implementation on Spot
+**1.** Whiteboard and writing detection
+**2.** Real-time detection on a camera
+**3.** Implementation on Spot
 
 The concepts we're applying to this project include:
 - Conventional Computer Vision (edges, contours, homography, lighting correction, thresholding)
