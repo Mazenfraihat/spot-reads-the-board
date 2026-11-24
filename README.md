@@ -1,15 +1,26 @@
 # Spot Whiteboard
 
-CS 5190 Computer Vision group project (Cal Poly Pomona). A Boston Dynamics Spot robot finds a whiteboard, flattens it to a straight-on view, and extracts what's written on it.
+CS 5190 Computer Vision (CV) group project at Cal Poly Pomona. A Boston Dynamics Spot robot identifies a whiteboard, flattens it to a straight-on view, and extracts what's written on it.
 
-- **Mini 1:** conventional CV (edges, contours, homography, lighting correction, thresholding)
-- **Mini 2:** deep learning (board detection + handwriting OCR)
-- **Final:** run both on Spot, compare, write the paper
+**Problem:** Can Spot read written characters on a whiteboard in the English language?
+
+Initially, Spot will detect characters written in the English language. Detecting other characters and objects on a whiteboard will be taken into future consideration.
+
+We're breaking the problem into three main stages to solve it:
+1. **Whiteboard and writing detection**
+2. **Real-time detection on a camera**
+3. **Implementation on Spot**
+
+The concepts we're applying to this project include:
+- Conventional Computer Vision (edges, contours, homography, lighting correction, thresholding)
+- Deep learning (board detection + handwriting OCR).
+
+We intend to run both on Spot, compare, and write the paper to submit for our final project for this course.
 
 ## Pipeline
 
 ```
-photo → 1. detect board → 2. flatten → 3. reduce glare → 4. find writing → (Mini 2: read text)
+photo → 1. detect board → 2. flatten → 3. reduce glare → 4. find writing → 5. read text
 ```
 
 | Step | Starter method | Function in `whiteboard_starter.py` |
@@ -60,14 +71,16 @@ Examples: `mazen_01_straight_clean.jpg`, `mazen_02_angle45_glare.jpg`, `mazen_03
 ## Repo layout
 
 ```
-whiteboard_starter.py    shared baseline everyone runs
-requirements.txt
-data/phone_photos/       put photos here (not committed — they live in Drive)
-results/                 script output (not committed)
+data/phone_photos/       put photos here (do NOT commit photos — they live in Drive)
 prototypes/<name>/       your improved version of one step
-make_test_photos.py      synthetic photos + ground truth
-evaluate.py              scores a pipeline against ground truth
+.gitignore               commits photos
+README.md               initial document to read on project progress
 RESULTS.md               comparison table for the meeting
+evaluate.py              scores a pipeline against ground truth
+make_test_photos.py      synthetic photos + ground truth
+requirements.txt           libraries to include (?)
+week1_results.html                 script output (not committed)
+whiteboard_starter.py    shared baseline everyone runs
 ```
 
 ## Rules
