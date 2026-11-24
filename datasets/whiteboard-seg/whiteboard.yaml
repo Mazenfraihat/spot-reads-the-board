@@ -1,0 +1,5 @@
+path: datasets/whiteboard-seg
+train: images/train
+val: images/val
+names:
+  0: whiteboard

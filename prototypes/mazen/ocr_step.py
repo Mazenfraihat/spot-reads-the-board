@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 
 import cv2
@@ -61,7 +62,7 @@ def _build_cluster_mask(flat, normalized):
     color = _build_color_ink_mask(flat)
     merged = cv2.bitwise_or(thr, color)
     merged = cv2.morphologyEx(merged, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2)))
-    merged = cv2.dilate(merged, cv2.getStructuringElement(cv2.MORPH_RECT, (21, 7)), iterations=1)
+    merged = cv2.dilate(merged, cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5)), iterations=1)
     return merged
 
 
@@ -77,6 +78,11 @@ def _find_text_clusters(flat, normalized):
         if bw * bh < min_area:
             continue
         if bw < 20 or bh < 10:
+            continue
+        # Drop likely board/frame lines that are too flat or too skinny.
+        if bw > int(0.85 * w) and bh < int(0.06 * h):
+            continue
+        if bw / max(bh, 1) > 25:
             continue
         boxes.append((x, y, bw, bh))
 
@@ -132,6 +138,42 @@ def _extract_lines_from_data(data, min_conf):
     return lines
 
 
+def _line_quality(line):
+    """Filter out obvious OCR garbage while keeping short meaningful phrases."""
+    cleaned = " ".join(line.split()).strip()
+    if len(cleaned) < 3:
+        return False
+    alnum_count = sum(ch.isalnum() for ch in cleaned)
+    if alnum_count < 3:
+        return False
+    alpha_ratio = alnum_count / max(len(cleaned), 1)
+    if alpha_ratio < 0.45:
+        return False
+    return True
+
+
+def _canonical_line(line):
+    return re.sub(r"[^a-z0-9]+", "", line.lower())
+
+
+def _postprocess_lines(cluster_lines):
+    """Normalize spacing and remove duplicates/low-quality lines."""
+    cleaned = []
+    seen = set()
+    for raw in cluster_lines:
+        line = " ".join(raw.split()).strip()
+        if not _line_quality(line):
+            continue
+        key = _canonical_line(line)
+        if len(key) < 3:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(line)
+    return cleaned
+
+
 def _ocr_candidate(pytesseract, ocr_img, psm, min_conf):
     cfg = f"--oem 3 --psm {psm}"
     data = pytesseract.image_to_data(
@@ -154,9 +196,9 @@ def _ocr_cluster_roi(pytesseract, roi):
     """OCR one clustered region and return best candidate text + confidence."""
     ocr_img = _prepare_ocr_image(roi, normalized=None)
     candidates = [
-        _ocr_candidate(pytesseract, ocr_img, psm=6, min_conf=32),
-        _ocr_candidate(pytesseract, ocr_img, psm=7, min_conf=30),
-        _ocr_candidate(pytesseract, ocr_img, psm=11, min_conf=28),
+        _ocr_candidate(pytesseract, ocr_img, psm=6, min_conf=38),
+        _ocr_candidate(pytesseract, ocr_img, psm=7, min_conf=35),
+        _ocr_candidate(pytesseract, ocr_img, psm=11, min_conf=33),
     ]
     return max(candidates, key=lambda c: c["score"])
 
@@ -194,8 +236,8 @@ def extract_text(flat, normalized=None):
             ocr_img = _prepare_ocr_image(flat, normalized)
             fallback = max(
                 [
-                    _ocr_candidate(pytesseract, ocr_img, psm=6, min_conf=35),
-                    _ocr_candidate(pytesseract, ocr_img, psm=11, min_conf=30),
+                    _ocr_candidate(pytesseract, ocr_img, psm=6, min_conf=40),
+                    _ocr_candidate(pytesseract, ocr_img, psm=11, min_conf=35),
                 ],
                 key=lambda c: c["score"],
             )
@@ -212,11 +254,7 @@ def extract_text(flat, normalized=None):
     except pytesseract.TesseractError as err:
         return "", f"tesseract error: {err}"
 
-    cleaned_lines = []
-    for line in cluster_lines:
-        text_line = " ".join(line.split())
-        if len(text_line) >= 2:
-            cleaned_lines.append(text_line)
+    cleaned_lines = _postprocess_lines(cluster_lines)
     text = "\n".join(cleaned_lines)
     if not text:
         return "", "no text detected"

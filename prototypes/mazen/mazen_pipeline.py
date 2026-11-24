@@ -24,6 +24,9 @@ if THIS_DIR not in sys.path:
     sys.path.append(THIS_DIR)  # allow importing sibling helper modules (e.g., ocr_step.py)
 
 from ocr_step import extract_text  # Step 5 OCR helper kept modular in a separate file
+from board_detector_ml import detect_board_ml
+
+DEFAULT_ML_WEIGHTS = os.environ.get("WHITEBOARD_ML_WEIGHTS")
 
 
 def order_corners(pts):
@@ -87,11 +90,15 @@ def detect_board(img):
     sat = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[..., 1]
     eq = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)   # boost contrast in dim rooms
     edges = auto_canny(cv2.GaussianBlur(eq, (5, 5), 0))
-    # Keep a thin edge map for saved output, but use a light close-pass for quad detection stability.
-    detect_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8), iterations=1)
+    edges = cv2.dilate(edges, np.ones((5, 5), np.uint8), iterations=2)     # close gaps in the frame
+
+    # Try trained segmentation-based detector first; fallback to CV heuristic when unavailable.
+    ml_corners = detect_board_ml(img, weights_path=DEFAULT_ML_WEIGHTS, conf=0.30)
+    if ml_corners is not None:
+        return ml_corners, edges
 
     img_area = img.shape[0] * img.shape[1]
-    quads = quad_candidates(detect_edges, img_area)
+    quads = quad_candidates(edges, img_area)
     if not quads:
         return None, edges
     scores = [whiteness(q, gray, sat) for q in quads]
